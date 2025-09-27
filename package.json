@@ -29,8 +29,12 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.5.2",
+    "@types/node-fetch": "^2.6.13",
     "mastra": "^0.13.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.2"
   }
 }
