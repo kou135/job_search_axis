@@ -1,0 +1,27 @@
+[
+  {
+    "url": "https://techcrunch.com/2025/01/15/akshay-naheta-distributed-technologies-research/",
+    "title": "SoftBank veteran hunts for profits in payments infrastructure plumbing | TechCrunch",
+    "bullets": [
+      "伝統的な銀行とブロックチェーンを繋ぐ決済インフラを構築するFintech企業である。",
+      "企業向けにAPIを通じて決済機能を提供するB2B SaaS的なビジネスモデルである。",
+      "AmalgamOSをコア技術とし、国際的な決済オーケストレーションを実現している。",
+      "高速かつ低コストな決済を実現し、既存の非効率なシステムを刷新することを目指す。",
+      "規制遵守を重視しつつ、デジタルノマドやクリエイター経済への対応を強化している。"
+    ],
+    "wordCount": 202,
+    "fitScore": 0.38
+  },
+  {
+    "url": "https://techcrunch.com/2024/12/18/softbank-backed-sme-lender-funding-societies-raises-25m/",
+    "title": "'We want to pay it forward': Funding Societies raises $25M to boost capital for SMEs in Southeast Asia | TechCrunch",
+    "bullets": [
+      "東南アジアSME向け融資プラットフォームを提供するFintech企業の資金調達記事。（43文字）",
+      "調達資金は、融資サービスの拡大とAIによる申請プロセスの自動化に充当される。（48文字）",
+      "同社は東南アジア5カ国で40億ドル超を融資し、市場リーダーとしての地位を確立。（47文字）",
+      "日本のクールジャパン機構が東南アジアFintechに初投資した事例として注目される。（48文字）"
+    ],
+    "wordCount": 185,
+    "fitScore": 0.9
+  }
+]
