@@ -12,6 +12,8 @@ program
   .option("--limit <number>", "記事取得上限", (value) => Number.parseInt(value, 10), 3)
   .option("--recencyDays <number>", "記事の新しさ（日数）", (value) => Number.parseInt(value, 10), 300)
   .action(async (options) => {
+    console.log("[CLI] options:", options);
+
     const companies = options.companies
       ? String(options.companies)
           .split(",")
@@ -29,4 +31,13 @@ program
     console.log(JSON.stringify(result, null, 2));
   });
 
-program.parse(process.argv);
+async function main() {
+  try {
+    await program.parseAsync(process.argv);
+  } catch (error) {
+    console.error("[CLI] error:", error);
+    process.exit(1);
+  }
+}
+
+void main();
