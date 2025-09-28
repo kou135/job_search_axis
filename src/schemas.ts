@@ -80,5 +80,5 @@ export type Events = {
   "qc.request": { company: string; summaries: Summary[]; policy: PolicyConfig };
   "qc.result": QCDecision;
   "write.request": QCDecision;
-  "write.result": { company: string; written: number; docPath: string };
+  "write.result": { company: string; written: number; pageId: string };
 };

@@ -7,6 +7,10 @@
         "@mastra/mcp-docs-server"
       ],
       "type": "stdio"
+    },
+    "notionMCP": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.notion.com/mcp"]
     }
-  }
+  },
 }
