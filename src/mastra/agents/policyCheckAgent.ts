@@ -1,6 +1,5 @@
 import { addDays } from "date-fns";
 
-import { defineAgent } from "../framework/mastra-lite.js";
 import type { Events } from "../../schemas.js";
 import {
   SummarySchema,
@@ -9,6 +8,7 @@ import {
   type QCDecision,
 } from "../../schemas.js";
 import { trimSummary } from "../tools/trimSummary.js";
+import type { Ctx } from "../context.js";
 
 function isWithinRecency(publishedAt: string | undefined, recencyDays: number): boolean {
   if (!publishedAt) {
@@ -75,14 +75,13 @@ function evaluateSummary(
   return { accepted: trimmed };
 }
 
-export const policyCheckAgent = defineAgent<
-  Events["qc.request"],
-  QCDecision
->("PolicyCheckAgent", async (input, ctx) => {
-  const { company, summaries, policy } = input;
+export const policyCheckAgent = {
+  name: "PolicyCheckAgent",
+  async run(input: Events["qc.request"], ctx: Ctx): Promise<QCDecision> {
+    const { company, summaries, policy } = input;
 
-  const accepted: Summary[] = [];
-  const rejected: QCDecision["rejected"] = [];
+    const accepted: Summary[] = [];
+    const rejected: QCDecision["rejected"] = [];
 
   for (const summary of summaries) {
     const result = evaluateSummary(summary, policy);
@@ -100,4 +99,5 @@ export const policyCheckAgent = defineAgent<
     accepted,
     rejected,
   } satisfies QCDecision;
-});
+  },
+};

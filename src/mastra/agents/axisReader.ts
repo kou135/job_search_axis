@@ -1,9 +1,9 @@
 import { parse } from "yaml";
 
-import { defineAgent } from "../framework/mastra-lite.js";
 import type { Events } from "../../schemas.js";
 import { AxisSchema } from "../../schemas.js";
 import { NotionService } from "../tools/notionService.js";
+import type { Ctx } from "../context.js";
 
 export interface AxisReaderInput {
   rootPageId: string;
@@ -14,9 +14,9 @@ export interface AxisReaderInput {
 
 export type AxisReadyPayload = Events["axis.ready"];
 
-export const axisReader = defineAgent<AxisReaderInput, AxisReadyPayload>(
-  "AxisReader",
-  async (input, ctx) => {
+export const axisReader = {
+  name: "AxisReader",
+  async run(input: AxisReaderInput, ctx: Ctx): Promise<AxisReadyPayload> {
     const token = process.env.NOTION_TOKEN;
     if (!token) {
       throw new Error("NOTION_TOKEN が設定されていません");
@@ -37,5 +37,5 @@ export const axisReader = defineAgent<AxisReaderInput, AxisReadyPayload>(
       recencyDays: input.recencyDays,
       limit: input.limit,
     } satisfies AxisReadyPayload;
-  }
-);
+  },
+};

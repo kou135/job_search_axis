@@ -1,18 +1,17 @@
 import { format } from "date-fns";
 
-import { defineAgent } from "../framework/mastra-lite.js";
 import type { Events } from "../../schemas.js";
 import { NotionService } from "../tools/notionService.js";
+import type { Ctx } from "../context.js";
 
-export const writerAgent = defineAgent<
-  Events["write.request"],
-  Events["write.result"]
->("WriterAgent", async (input, ctx) => {
-  const token = process.env.NOTION_TOKEN;
-  const rootPageId = process.env.NOTION_ROOT_PAGE_ID;
+export const writerAgent = {
+  name: "WriterAgent",
+  async run(input: Events["write.request"], ctx: Ctx): Promise<Events["write.result"]> {
+    const token = process.env.NOTION_TOKEN;
+    const rootPageId = process.env.NOTION_ROOT_PAGE_ID;
 
-  if (!token) {
-    throw new Error("NOTION_TOKEN が設定されていません");
+    if (!token) {
+      throw new Error("NOTION_TOKEN が設定されていません");
   }
   if (!rootPageId) {
     throw new Error("NOTION_ROOT_PAGE_ID が設定されていません");
@@ -40,4 +39,5 @@ export const writerAgent = defineAgent<
     written: input.accepted.length,
     pageId: companyPageId,
   } satisfies Events["write.result"];
-});
+  },
+};
