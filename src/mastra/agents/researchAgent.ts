@@ -4,66 +4,118 @@ import { ResearchRequestSchema, SummarySchema } from "../../schemas.js";
 import { fetchHtml } from "../tools/fetchHtml.js";
 import { extractMainText } from "../tools/extractMainText.js";
 import { summarizeArticle } from "../tools/llm.js";
+import { extractLinksFromSearch } from "../tools/extractLinksFromSearch.js";
 
-const NEWS_SOURCES: Array<
-  (request: ResearchRequest) => string
-> = [
-  (request) =>
-    `https://www.reuters.com/site-search/?query=${encodeURIComponent(
-      `${request.company} ${request.axis.industries[0] ?? ""}`
-    )}`,
-  (request) =>
-    `https://techcrunch.com/search/${encodeURIComponent(
-      `${request.company} ${request.axis.industries[0] ?? ""}`
-    )}`
+type NewsSource = {
+  name: string;
+  buildUrl: (request: ResearchRequest) => string;
+  linkSelectors: string[];
+};
+
+const MAX_ARTICLES_PER_SOURCE = 2;
+
+const NEWS_SOURCES: NewsSource[] = [
+  {
+    name: "reuters",
+    buildUrl: (request) =>
+      `https://www.reuters.com/site-search/?query=${encodeURIComponent(
+        `${request.company} ${request.axis.industries[0] ?? ""}`
+      )}`,
+    linkSelectors: ["a[data-testid=\"TitleLink\"]", "a[data-testid=\"Heading\"]"],
+  },
+  {
+    name: "techcrunch",
+    buildUrl: (request) =>
+      `https://techcrunch.com/search/${encodeURIComponent(
+        `${request.company} ${request.axis.industries[0] ?? ""}`
+      )}`,
+    linkSelectors: ["a.loop-card__title-link", ".post-block__title a"],
+  },
 ];
 
-function slugify(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-async function collectSummaries(request: ResearchRequest, ctxLog: (...args: unknown[]) => void) {
+async function collectSummaries(
+  request: ResearchRequest,
+  ctxLog: (...args: unknown[]) => void
+): Promise<Summary[]> {
   const summaries: Summary[] = [];
 
-  for (const buildUrl of NEWS_SOURCES) {
+  for (const source of NEWS_SOURCES) {
     if (summaries.length >= request.limit) {
       break;
     }
 
-    const targetUrl = buildUrl(request);
+    const searchUrl = source.buildUrl(request);
 
     try {
-      const { html, url } = await fetchHtml(targetUrl);
-      const extracted = extractMainText(html, url);
+      const { html: searchHtml, url: resolvedSearchUrl } = await fetchHtml(searchUrl);
 
-      if (!extracted.text.trim()) {
-        ctxLog(`[ResearchAgent] 本文が取得できませんでした: ${url}`);
+      const remainingCapacity = request.limit - summaries.length;
+      const perSourceLimit = Math.min(MAX_ARTICLES_PER_SOURCE, remainingCapacity);
+      const articleUrls: string[] = [];
+
+      for (const selector of source.linkSelectors) {
+        const needed = perSourceLimit - articleUrls.length;
+        if (needed <= 0) {
+          break;
+        }
+
+        const extractedUrls = extractLinksFromSearch(searchHtml, resolvedSearchUrl, selector, needed);
+        for (const url of extractedUrls) {
+          if (!articleUrls.includes(url)) {
+            articleUrls.push(url);
+          }
+          if (articleUrls.length >= perSourceLimit) {
+            break;
+          }
+        }
+      }
+
+      if (articleUrls.length === 0) {
+        ctxLog(`[ResearchAgent] 記事リンクが見つかりませんでした: ${resolvedSearchUrl}`);
         continue;
       }
 
-      const summary = await summarizeArticle({
-        url,
-        title: extracted.title || `${request.company} ニュース`,
-        text: extracted.text,
-        axis: request.axis,
-        language: "ja",
-      });
+      for (const articleUrl of articleUrls) {
+        if (summaries.length >= request.limit) {
+          break;
+        }
 
-      summaries.push(SummarySchema.parse(summary));
+        try {
+          const { html: articleHtml, url: resolvedArticleUrl } = await fetchHtml(articleUrl);
+          const extracted = extractMainText(articleHtml, resolvedArticleUrl);
+
+          if (!extracted.text.trim()) {
+            ctxLog(`[ResearchAgent] 本文が取得できませんでした: ${resolvedArticleUrl}`);
+            continue;
+          }
+
+          const summary = await summarizeArticle({
+            url: resolvedArticleUrl,
+            title: extracted.title || `${request.company} ニュース`,
+            text: extracted.text,
+            axis: request.axis,
+            language: "ja",
+          });
+
+          summaries.push(SummarySchema.parse(summary));
+        } catch (error) {
+          ctxLog(
+            `[ResearchAgent] 記事処理に失敗しました (${articleUrl}): ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+      }
     } catch (error) {
       ctxLog(
-        `[ResearchAgent] 収集に失敗しました (${targetUrl}): ${
+        `[ResearchAgent] 検索ページ取得に失敗しました (${searchUrl}): ${
           error instanceof Error ? error.message : String(error)
         }`
       );
     }
   }
 
-  return summaries.slice(0, request.limit);
+  return summaries;
 }
 
 export const researchAgent = defineAgent<ResearchRequest, Events["research.result"]>(
