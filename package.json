@@ -10,7 +10,8 @@
     "axis": "node --loader ts-node/esm src/mastra/cli-axis.ts",
     "research": "node --loader ts-node/esm src/mastra/cli-research.ts",
     "policy": "node --loader ts-node/esm src/mastra/cli-policy.ts",
-    "write": "node --loader ts-node/esm src/mastra/cli-writer.ts"
+    "write": "node --loader ts-node/esm src/mastra/cli-writer.ts",
+    "orchestrate": "node --loader ts-node/esm src/mastra/cli-orchestrate.ts"
   },
   "keywords": [],
   "author": "",
