@@ -46,7 +46,7 @@ export const PolicyConfigSchema = z
     maxChars: z.number().int().min(50).max(600).default(200),
     maxBullets: z.number().int().min(1).max(10).default(5),
     minFitScore: z.number().min(0).max(1).default(0.45),
-    recencyDays: z.number().int().min(7).max(180).default(90),
+    recencyDays: z.number().int().min(7).max(300).default(90),
     language: z.enum(["ja", "en", "auto"]).default("ja"),
   })
   .strict();

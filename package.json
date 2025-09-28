@@ -8,7 +8,8 @@
     "build": "mastra build",
     "start": "mastra start",
     "axis": "tsx src/mastra/cli-axis.ts",
-    "research": "tsx src/mastra/cli-research.ts"
+    "research": "tsx src/mastra/cli-research.ts",
+    "policy": "tsx src/mastra/cli-policy.ts"
   },
   "keywords": [],
   "author": "",

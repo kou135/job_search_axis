@@ -6,6 +6,7 @@ import {
   type AxisReadyPayload,
 } from "./agents/axisReader.js";
 import { researchAgent } from "./agents/researchAgent.js";
+import { policyCheckAgent } from "./agents/policyCheckAgent.js";
 import type { Events, ResearchRequest } from "../schemas.js";
 import type { Ctx } from "./framework/mastra-lite.js";
 
@@ -21,4 +22,10 @@ export async function runResearchAgent(
   input: ResearchRequest
 ): Promise<Events["research.result"]> {
   return researchAgent.run(input, ctx);
+}
+
+export async function runPolicyCheck(
+  input: Events["qc.request"]
+): Promise<Events["qc.result"]> {
+  return policyCheckAgent.run(input, ctx);
 }
