@@ -84,16 +84,27 @@ async function summarizeWithGemini(params: SummarizeParams): Promise<Summary> {
   }
 
   const model = geminiClient.getGenerativeModel({ model: GEMINI_MODEL });
-  const prompt = `あなたは就職活動支援のリサーチャーです。以下の記事を読み、候補者の就活軸との適合度を評価しながら日本語で要約してください。\n\n` +
-    `---\nAxis\n${buildAxisDescription(params.axis)}\n---\n` +
-    `記事タイトル: ${params.title}\nURL: ${params.url}\n言語: ${params.language ?? "ja"}\n公開日: ${params.publishedAt ?? "不明"}\n本文:\n${params.text}\n\n` +
-    `出力フォーマット（JSON）: { "bullets": string[] (3〜5件、日本語、各40〜60文字程度), "fitScore": number (0〜1で小数第2位まで) }`;
+  const axisDescription = buildAxisDescription(params.axis);
+
+  const prompt = `あなたは就職活動支援のリサーチャーです。以下の要件に従って、候補者の就活軸との適合度を考慮しながら日本語で要約してください。\n\n` +
+    `1. 応答は必ず JSON のみで返すこと（余計な見出し・コードフェンス・Markdownは禁止）。\n` +
+    `2. JSON の形式は { "bullets": string[], "fitScore": number } とすること。\n` +
+    `3. "bullets" は 3〜5 件の日本語で、各40〜60文字程度に収めること。\n` +
+    `4. "fitScore" は 0〜1 の小数第2位までで、Axis との適合度を示すこと。\n` +
+    `5. 上記以外の文字列やコメント、Markdown を絶対に返さないこと。\n\n` +
+    `---\nAxis\n${axisDescription}\n---\n` +
+    `記事タイトル: ${params.title}\nURL: ${params.url}\n言語: ${params.language ?? "ja"}\n公開日: ${params.publishedAt ?? "不明"}\n本文:\n${params.text}`;
 
   const result = await model.generateContent({
-    contents: [{
-      role: "user",
-      parts: [{ text: prompt }],
-    }],
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.2,
+    },
   });
 
   const rawText = result.response?.text();
