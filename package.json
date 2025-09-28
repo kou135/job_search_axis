@@ -7,11 +7,11 @@
     "dev": "mastra dev",
     "build": "mastra build",
     "start": "mastra start",
-    "axis": "node --loader ts-node/esm src/mastra/cli-axis.ts",
-    "research": "node --loader ts-node/esm src/mastra/cli-research.ts",
-    "policy": "node --loader ts-node/esm src/mastra/cli-policy.ts",
-    "write": "node --loader ts-node/esm src/mastra/cli-writer.ts",
-    "orchestrate": "node --loader ts-node/esm src/mastra/cli-orchestrate.ts"
+    "axis": "node --loader ts-node/esm src/tests/clis/cli-axis.ts",
+    "research": "node --loader ts-node/esm src/tests/clis/cli-research.ts",
+    "policy": "node --loader ts-node/esm src/tests/clis/cli-policy.ts",
+    "write": "node --loader ts-node/esm src/tests/clis/cli-writer.ts",
+    "orchestrate": "node --loader ts-node/esm src/tests/clis/cli-orchestrate.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,10 +1,10 @@
-import { defineAgent } from "../framework/mastra-lite.js";
 import type { Events, ResearchRequest, Summary } from "../../schemas.js";
 import { ResearchRequestSchema, SummarySchema } from "../../schemas.js";
 import { fetchHtml } from "../tools/fetchHtml.js";
 import { extractMainText } from "../tools/extractMainText.js";
 import { summarizeArticle } from "../tools/llm.js";
 import { extractLinksFromSearch } from "../tools/extractLinksFromSearch.js";
+import type { Ctx } from "../context.js";
 
 type NewsSource = {
   name: string;
@@ -110,9 +110,9 @@ async function collectSummaries(
   return summaries;
 }
 
-export const researchAgent = defineAgent<ResearchRequest, Events["research.result"]>(
-  "ResearchAgent",
-  async (input, ctx) => {
+export const researchAgent = {
+  name: "ResearchAgent",
+  async run(input: ResearchRequest, ctx: Ctx): Promise<Events["research.result"]> {
     const request = ResearchRequestSchema.parse(input);
     const summaries = await collectSummaries(request, ctx.log);
     const validated = summaries.map((summary) => SummarySchema.parse(summary));
@@ -121,5 +121,5 @@ export const researchAgent = defineAgent<ResearchRequest, Events["research.resul
       company: request.company,
       summaries: validated,
     } satisfies Events["research.result"];
-  }
-);
+  },
+};

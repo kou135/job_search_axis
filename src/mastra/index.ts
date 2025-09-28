@@ -9,7 +9,7 @@ import { researchAgent } from "./agents/researchAgent.js";
 import { policyCheckAgent } from "./agents/policyCheckAgent.js";
 import { writerAgent } from "./agents/writerAgent.js";
 import type { Events, ResearchRequest } from "../schemas.js";
-import type { Ctx } from "./framework/mastra-lite.js";
+import type { Ctx } from "./context.js";
 
 const ctx: Ctx = {
   log: (...args) => console.log(...args),

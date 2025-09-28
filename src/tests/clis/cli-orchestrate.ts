@@ -1,6 +1,6 @@
 import { Command } from "commander";
 
-import { orchestrateNotionWorkflow } from "./workflows/Orchestrator.js";
+import { orchestrateNotionWorkflow } from "../../mastra/workflows/orchestrator.js";
 
 const program = new Command();
 

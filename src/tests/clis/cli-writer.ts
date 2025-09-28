@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 
 import { Command } from "commander";
 
-import { runWriterAgent } from "./index.js";
-import { QCDecisionSchema } from "../schemas.js";
+import { runWriterAgent } from "../../mastra/index.js";
+import { QCDecisionSchema } from "../../schemas.js";
 
 const program = new Command();
 

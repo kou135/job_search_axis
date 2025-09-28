@@ -4,7 +4,6 @@ import type {
   BlockObjectResponse,
   BlockObjectRequestWithoutChildren,
   PageObjectResponse,
-  PartialBlockObjectResponse,
   PartialPageObjectResponse,
 } from "@notionhq/client/build/src/api-endpoints";
 

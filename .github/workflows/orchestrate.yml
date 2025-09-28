@@ -1,0 +1,44 @@
+name: Weekly Orchestrator
+
+on:
+  schedule:
+    # 毎週月曜日 03:00に実行。
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      companies:
+        description: "カンマ区切りの会社名"
+        required: false
+        default: ""
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_ROOT_PAGE_ID: ${{ secrets.NOTION_ROOT_PAGE_ID }}
+      COMPANIES: ${{ github.event.inputs.companies }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run orchestrator
+        run: |
+          if [ -n "$COMPANIES" ]; then
+            npm run orchestrate -- --root "$NOTION_ROOT_PAGE_ID" --companies "$COMPANIES" --limit 3 --recencyDays 300
+          else
+            npm run orchestrate -- --root "$NOTION_ROOT_PAGE_ID" --companies "SoftBank" --limit 3 --recencyDays 300
+          fi
+        env:
+          NOTION_TOKEN: ${{ env.NOTION_TOKEN }}
+          NOTION_ROOT_PAGE_ID: ${{ env.NOTION_ROOT_PAGE_ID }}
