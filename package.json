@@ -9,7 +9,8 @@
     "start": "mastra start",
     "axis": "tsx src/mastra/cli-axis.ts",
     "research": "tsx src/mastra/cli-research.ts",
-    "policy": "tsx src/mastra/cli-policy.ts"
+    "policy": "tsx src/mastra/cli-policy.ts",
+    "write": "tsx src/mastra/cli-writer.ts"
   },
   "keywords": [],
   "author": "",
