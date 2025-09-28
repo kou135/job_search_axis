@@ -8,9 +8,9 @@ program
   .name("research-agent")
   .description("会社ごとのニュースを収集して要約を作成します")
   .requiredOption(
-    "--doc <path>",
-    "AXIS を含む DOCX のパス",
-    process.env.OUTPUT_DOCX ?? "./out/JobSearch_KnowledgeBase.docx"
+    "--root <pageId>",
+    "Notion 親ページID",
+    process.env.NOTION_ROOT_PAGE_ID
   )
   .requiredOption("--companies <names>", "カンマ区切りの会社名一覧")
   .option("--limit <number>", "記事取得上限", (value) => Number.parseInt(value, 10), 3)
@@ -18,10 +18,12 @@ program
     "--recencyDays <number>",
     "記事の新しさ（日数）",
     (value) => Number.parseInt(value, 10),
-    300
+    180
   )
   .action(async (options) => {
-    console.log("[CLI] options:", options);
+    if (!options.root) {
+      throw new Error("--root か NOTION_ROOT_PAGE_ID の設定が必要です");
+    }
 
     const companies = String(options.companies)
       .split(",")
@@ -29,7 +31,7 @@ program
       .filter(Boolean);
 
     const axisReady = await runAxisReader({
-      docPath: options.doc,
+      rootPageId: options.root,
       companies,
       limit: options.limit,
       recencyDays: options.recencyDays,
