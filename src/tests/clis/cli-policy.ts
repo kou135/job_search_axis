@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 
 import { Command } from "commander";
 
-import { runPolicyCheck } from "./index.js";
-import { SummarySchema, PolicyConfigSchema } from "../schemas.js";
+import { runPolicyCheck } from "../../mastra/index.js";
+import { SummarySchema, PolicyConfigSchema } from "../../schemas.js";
 
 const program = new Command();
 

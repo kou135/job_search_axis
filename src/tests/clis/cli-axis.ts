@@ -1,6 +1,6 @@
 import { Command } from "commander";
 
-import { runAxisReader } from "./index.js";
+import { runAxisReader } from "../../mastra/index.js";
 
 const program = new Command();
 
