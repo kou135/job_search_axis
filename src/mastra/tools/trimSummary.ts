@@ -5,8 +5,10 @@ export interface TrimResult {
   reason?: string;
 }
 
-//要約がポリシー制限に収まるようトリムし、再検証した Summary を返す。
-//トリム不可能な場合は reason を添えて undefined を返す。
+/**
+ * 要約がポリシー制限に収まるようトリムし、再検証した Summary を返す。
+ * トリム不可能な場合は reason を添えて undefined を返す。
+ */
 export function trimSummary(
   summary: Summary,
   maxChars: number,
