@@ -1,0 +1,7 @@
+{
+  "maxChars": 200,
+  "maxBullets": 5,
+  "minFitScore": 0.5,
+  "recencyDays": 180,
+  "language": "ja"
+}
