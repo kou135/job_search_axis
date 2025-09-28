@@ -16,14 +16,6 @@ const MAX_ARTICLES_PER_SOURCE = 2;
 
 const NEWS_SOURCES: NewsSource[] = [
   {
-    name: "reuters",
-    buildUrl: (request) =>
-      `https://www.reuters.com/site-search/?query=${encodeURIComponent(
-        `${request.company} ${request.axis.industries[0] ?? ""}`
-      )}`,
-    linkSelectors: ["a[data-testid=\"TitleLink\"]", "a[data-testid=\"Heading\"]"],
-  },
-  {
     name: "techcrunch",
     buildUrl: (request) =>
       `https://techcrunch.com/search/${encodeURIComponent(
