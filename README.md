@@ -51,7 +51,7 @@ Mastraを用いた4つのエージェント構成で、司令塔が直列にワ�
 ### 5.1. 前提条件
 - Node.js v22.x
 - npm
-- OpenAI APIキー（もしくはGemini APIキー）
+- Gemini APIキー・OpenAI APIキー
 - Notion IntegrationトークンとルートページID  
   （NotionページのURL末尾 `.../<page_id>?...` の32文字UUID）
 
@@ -67,11 +67,10 @@ npm install
 
 ```
 OPENAI_API_KEY=sk-...
-# LLM_PROVIDER=gemini            # Gemini を使う場合のみ
-# GEMINI_API_KEY=...             # Gemini 用
+# LLM_PROVIDER=gemini           
+# GEMINI_API_KEY=...             
 NOTION_TOKEN=secret_...
 NOTION_ROOT_PAGE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-OUTPUT_DOCX=./out/JobSearch_KnowledgeBase.docx      # Word 出力を使う場合の例
 ```
 
 > 補足: `.env.example` に雛形があります。
@@ -83,7 +82,7 @@ CLIは `src/tests/clis` にまとまっています。代表的なコマンド�
   ```bash
   npm run orchestrate -- \
     --root "$NOTION_ROOT_PAGE_ID" \
-    --companies "<company1>,<company2>" \
+    --companies "Ramp,Rippling" \
     --limit 3 \
     --recencyDays 300
   ```
@@ -95,21 +94,21 @@ CLIは `src/tests/clis` にまとまっています。代表的なコマンド�
   ```bash
   npm run research -- \
     --root "$NOTION_ROOT_PAGE_ID" \
-    --companies "<company>" \
+    --companies "Ramp" \
     --limit 3 \
     --recencyDays 90
   ```
 - **ポリシー判定（サンプル JSON 利用）**  
   ```bash
   npm run policy -- \
-    --company <company> \
+    --company Softbank\
     --summariesFile src/tests/samples/summaries-test.json \
     --policyFile src/tests/samples/policy-default.json
   ```
 - **Notion 書き込み（QC 済みサンプルを使用）**  
   ```bash
   npm run write -- \
-    --inputFile src/tests/samples/qc-<company>.json
+    --inputFile src/tests/samples/qc-softbank.json
   ```
 
 GitHub Actionsで週次実行する場合は `.github/workflows/orchestrate.yml` を参照し、`NOTION_TOKEN` と `NOTION_ROOT_PAGE_ID` をリポジトリシークレットへ設定してください。
