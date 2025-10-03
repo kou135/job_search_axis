@@ -140,13 +140,19 @@ export class NotionService {
     }
   }
 
-  async appendSummaries(companyPageId: string, headingDate: string, summaries: Summary[]) {
+  async appendSummaries(
+    companyPageId: string,
+    headingDate: string,
+    summaries: Summary[],
+    introParagraph?: string,
+  ) {
     if (summaries.length === 0) {
       return;
     }
 
     const children: BlockObjectRequest[] = [
       this.headingBlock(headingDate),
+      ...(introParagraph ? [this.paragraphBlock(introParagraph)] : []),
       ...summaries.flatMap((summary) => this.toggleBlock(summary)),
     ];
 
@@ -161,6 +167,20 @@ export class NotionService {
           {
             type: "text",
             text: { content: dateText },
+          },
+        ],
+      },
+    };
+  }
+
+  private paragraphBlock(text: string): BlockObjectRequest {
+    return {
+      type: "paragraph",
+      paragraph: {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: text },
           },
         ],
       },

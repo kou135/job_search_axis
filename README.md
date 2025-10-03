@@ -19,16 +19,16 @@
 
 ## 3. アーキテクチャ (Architecture)
 ```
-AxisReader → Research (ComputerUse) → PolicyCheck → NotionWriter
-         └─────────────── Orchestrator (司令塔) ───────────────┘
+AxisReaderTool → OrchestratorAgent → ResearchTool → PolicyEvaluationTool → NotionWriterTool
 ```
 
-Mastraを用いた4つのエージェント構成で、司令塔が直列にワークフローを制御します。
+Mastra Workflow 上でツールとエージェントを直列接続し、以下の順で処理します。
 
-- **司令塔エージェント**: Axisと企業リストを入力に、検索クエリ生成・ポリシー閾値決定・各ステップの制御を行う。
-- **調査探索エージェント (ComputerUse)**: ブラウザ操作を想定した枠組みでWebを巡回し、Readability + JSDOMで本文抽出 → LLMによる要約。
-- **評価エージェント (PolicyCheck)**: 要約が軸に適合しているか、文字数・箇条書き数などを機械判定する。
-- **ナレッジ管理エージェント**: 合格した要約のみNotionに追記。出力先を差し替えられるよう抽象化。
+- **AxisReaderTool**: Notion の親ページから YAML 形式の就活軸を取得し、zod で検証。
+- **OrchestratorAgent**: Axis をもとに関連企業を LLM で推定し、候補リストを JSON で返す。
+- **ResearchTool**: 各企業についてニュース記事を収集し、LLM 要約を生成。
+- **PolicyEvaluationTool**: 軸との整合度を独自スコアと AnswerRelevancyMetric で評価し、受理/却下を判定。
+- **NotionWriterTool**: 受理された要約のみを Notion の企業ページに追記。
 
 ---
 
@@ -76,42 +76,17 @@ NOTION_ROOT_PAGE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 > 補足: `.env.example` に雛形があります。
 
 ### 5.4. 実行コマンド
-CLIは `src/tests/clis` にまとまっています。代表的なコマンドは以下。
 
-- **全体ワークフロー (Notion 書き込み含む)**  
-  ```bash
-  npm run orchestrate -- \
-    --root "$NOTION_ROOT_PAGE_ID" \
-    --companies "Ramp,Rippling" \
-    --limit 3 \
-    --recencyDays 300
-  ```
-- **Axis 抽出のみ**  
-  ```bash
-  npm run axis -- --root "$NOTION_ROOT_PAGE_ID"
-  ```
-- **調査 & 要約のみ**  
-  ```bash
-  npm run research -- \
-    --root "$NOTION_ROOT_PAGE_ID" \
-    --companies "Ramp" \
-    --limit 3 \
-    --recencyDays 90
-  ```
-- **ポリシー判定（サンプル JSON 利用）**  
-  ```bash
-  npm run policy -- \
-    --company Softbank\
-    --summariesFile src/tests/samples/summaries-test.json \
-    --policyFile src/tests/samples/policy-default.json
-  ```
-- **Notion 書き込み（QC 済みサンプルを使用）**  
-  ```bash
-  npm run write -- \
-    --inputFile src/tests/samples/qc-softbank.json
-  ```
+全工程をまとめて実行する CLI を提供しています。
 
-GitHub Actionsで週次実行する場合は `.github/workflows/orchestrate.yml` を参照し、`NOTION_TOKEN` と `NOTION_ROOT_PAGE_ID` をリポジトリシークレットへ設定してください。
+```bash
+npm run orchestrate -- \
+  --root "$NOTION_ROOT_PAGE_ID" \
+  --limit 3 \
+  --recencyDays 90
+```
+
+GitHub Actions で週次実行する場合は `.github/workflows/orchestrate.yml` を参照し、`NOTION_TOKEN` と `NOTION_ROOT_PAGE_ID` をリポジトリシークレットへ設定してください。
 
 ---
 

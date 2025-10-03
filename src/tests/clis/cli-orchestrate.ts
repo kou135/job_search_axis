@@ -1,41 +1,51 @@
 import { Command } from "commander";
 
-import { orchestrateNotionWorkflow } from "../../mastra/workflows/orchestrator.js";
+import { mastra } from "../../mastra/index.js";
+
+const WORKFLOW_ID = "job-search-workflow";
 
 const program = new Command();
 
 program
-  .name("orchestrate")
-  .description("Axis→Research→Policy→Writer を Notion 上で実行")
+  .name("job-search-orchestrator")
+  .description("Axis → Orchestrator → Research → Policy → Writer のワークフローを実行")
   .requiredOption(
     "--root <pageId>",
     "Notion 親ページID",
     process.env.NOTION_ROOT_PAGE_ID
   )
-  .requiredOption("--companies <names>", "カンマ区切りの会社名一覧")
-  .option("--limit <number>", "記事取得上限", (value) => Number.parseInt(value, 10), 3)
+  .option("--limit <number>", "企業ごとの記事取得上限", (value) => Number.parseInt(value, 10), 3)
   .option(
     "--recencyDays <number>",
     "記事の新しさ（日数）",
     (value) => Number.parseInt(value, 10),
-    180
+    90
   )
   .action(async (options) => {
     if (!options.root) {
       throw new Error("--root か NOTION_ROOT_PAGE_ID の設定が必要です");
     }
 
-    const companies = String(options.companies)
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
+    const workflow = mastra.getWorkflow(WORKFLOW_ID);
+    const run = await workflow.createRunAsync();
 
-    await orchestrateNotionWorkflow({
-      rootPageId: options.root,
-      companies,
-      limit: options.limit,
-      recencyDays: options.recencyDays,
+    const result = await run.start({
+      inputData: {
+        rootPageId: options.root,
+        limit: options.limit,
+        recencyDays: options.recencyDays,
+      },
     });
+
+    console.log("[workflow] QC results:");
+    for (const qc of result.output.qcResults) {
+      console.log(`  - ${qc.company}: accepted=${qc.accepted.length}, rejected=${qc.rejected.length}`);
+    }
+
+    console.log("[workflow] Writer results:");
+    for (const writer of result.output.writerResults) {
+      console.log(`  - ${writer.company}: written=${writer.written}, pageId=${writer.pageId}`);
+    }
   });
 
 async function main() {

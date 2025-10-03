@@ -1,43 +1,15 @@
-import { format } from "date-fns";
+import { Agent } from "@mastra/core/agent";
+import { openai } from "@ai-sdk/openai";
 
-import type { Events } from "../../schemas.js";
-import { NotionService } from "../tools/notionService.js";
-import type { Ctx } from "../context.js";
-
-export const writerAgent = {
-  name: "WriterAgent",
-  async run(input: Events["write.request"], ctx: Ctx): Promise<Events["write.result"]> {
-    const token = process.env.NOTION_TOKEN;
-    const rootPageId = process.env.NOTION_ROOT_PAGE_ID;
-
-    if (!token) {
-      throw new Error("NOTION_TOKEN が設定されていません");
-  }
-  if (!rootPageId) {
-    throw new Error("NOTION_ROOT_PAGE_ID が設定されていません");
-  }
-
-  if (input.accepted.length === 0) {
-    ctx.log(`[WriterAgent] 受理された要約がないため出力をスキップしました (${input.company})`);
-    return {
-      company: input.company,
-      written: 0,
-      pageId: rootPageId,
-    } satisfies Events["write.result"];
-  }
-
-  const notion = new NotionService(rootPageId, token);
-  const companyPageId = await notion.ensureCompanyPage(input.company);
-
-  const headingDate = format(new Date(), "yyyy-MM-dd");
-  await notion.appendSummaries(companyPageId, headingDate, input.accepted);
-
-  ctx.log(`[WriterAgent] ${input.accepted.length} 件の要約を Notion に追記しました (${input.company})`);
-
-  return {
-    company: input.company,
-    written: input.accepted.length,
-    pageId: companyPageId,
-  } satisfies Events["write.result"];
-  },
-};
+export const writerAgent = new Agent({
+  name: "writerAgent",
+  instructions: [
+    "You craft short Japanese narratives for job-search research notes stored in Notion.",
+    "Input includes a company name, the candidate axis, and accepted news summaries (title, bullets, fitScore, publishedAt).",
+    "Generate a brief intro paragraph (1-2 sentences) highlighting why the company matches the axis based on the summaries.",
+    "Optionally suggest a headingDate override in ISO format (YYYY-MM-DD) if a better date is obvious; otherwise omit it.",
+    "Return JSON with shape {\"intro\": string, \"headingDate\"?: string}.",
+    "Do not include extra commentary or wrap the JSON in code fences."
+  ].join(" "),
+  model: openai("gpt-4o-mini"),
+});
