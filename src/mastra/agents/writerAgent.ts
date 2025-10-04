@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 
 export const writerAgent = new Agent({
   name: "writerAgent",
@@ -11,5 +11,5 @@ export const writerAgent = new Agent({
     "Return JSON with shape {\"intro\": string, \"headingDate\"?: string}.",
     "Do not include extra commentary or wrap the JSON in code fences."
   ].join(" "),
-  model: openai("gpt-4o-mini"),
+  model: google(process.env.GEMINI_MODEL ?? "gemini-flash-latest"),
 });

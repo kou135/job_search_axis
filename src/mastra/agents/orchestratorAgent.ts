@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 
 export const orchestratorAgent = new Agent({
   name: "orchestratorAgent",
@@ -12,5 +12,5 @@ export const orchestratorAgent = new Agent({
     "Return between 2 and 5 companies depending on how many relevant matches you can find. Never return an empty list.",
     "Do not include any text before or after the JSON."
   ].join(" "),
-  model: openai("gpt-4o-mini"),
+  model: google(process.env.GEMINI_MODEL ?? "gemini-flash-latest"),
 });

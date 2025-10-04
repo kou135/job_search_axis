@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 
 export const researchAgent = new Agent({
   name: "researchAgent",
@@ -13,5 +13,5 @@ export const researchAgent = new Agent({
     "fitScore is a float between 0 and 1 with two decimals indicating how well the article aligns with the axis.",
     "Do not add explanations outside of the JSON. Never wrap the JSON in code fences."
   ].join(" "),
-  model: openai("gpt-4o-mini"),
+  model: google(process.env.GEMINI_MODEL ?? "gemini-flash-latest"),
 });

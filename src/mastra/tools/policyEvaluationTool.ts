@@ -1,5 +1,5 @@
 import { createTool } from "@mastra/core/tools";
-import { openai } from "@ai-sdk/openai";
+import { google } from '@ai-sdk/google';
 import { AnswerRelevancyMetric } from "@mastra/evals/llm";
 import { z } from "zod";
 
@@ -11,7 +11,7 @@ import {
   type PolicyConfig,
 } from "../../schemas.js";
 
-const metric = new AnswerRelevancyMetric(openai("gpt-4o-mini"), {
+const metric = new AnswerRelevancyMetric(google(process.env.GEMINI_MODEL ?? "gemini-flash-latest"), {
   uncertaintyWeight: 0.3,
   scale: 1,
 });

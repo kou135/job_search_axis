@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 
 export const policyAgent = new Agent({
   name: "policyAgent",
@@ -15,5 +15,5 @@ export const policyAgent = new Agent({
     "Use the provided index values to reference summaries. Give short Japanese reasons for each rejection.",
     "Do not include explanatory text outside the JSON and do not wrap with code fences."
   ].join(" "),
-  model: openai("gpt-4o-mini"),
+  model: google(process.env.GEMINI_MODEL ?? "gemini-flash-latest"),
 });

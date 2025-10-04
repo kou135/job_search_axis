@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+      "mastra": {
+        "command": "npx",
+        "args": ["-y", "@mastra/mcp-docs-server"]
+      },
+      "notionMCP": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote", "https://mcp.notion.com/mcp"]
+      }
+    }
+  }
