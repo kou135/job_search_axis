@@ -21,6 +21,7 @@ jobs:
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       NOTION_ROOT_PAGE_ID: ${{ secrets.NOTION_ROOT_PAGE_ID }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY || secrets.GEMINI_API_KEY }}
       SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
       DEFAULT_LIMIT: ${{ vars.DEFAULT_LIMIT || '3' }}
       DEFAULT_RECENCY_DAYS: ${{ vars.DEFAULT_RECENCY_DAYS || '300' }}
