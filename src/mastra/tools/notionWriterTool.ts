@@ -85,7 +85,7 @@ export const notionWriterTool = createTool({
       console.warn("[NotionWriter] エージェントによるイントロ生成に失敗しました:", error);
     }
 
-    const headingText = headingOverride || headingDate || new Date().toISOString().slice(0, 10);
+    const headingText = new Date().toISOString().slice(0, 10);
 
     await notion.appendSummaries(companyPageId, headingText, summaries, introParagraph);
 
