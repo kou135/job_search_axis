@@ -12,7 +12,7 @@ import {
 } from "../../schemas.js";
 
 const metric = new AnswerRelevancyMetric(google(process.env.GEMINI_MODEL ?? "gemini-flash-latest"), {
-  uncertaintyWeight: 0.3,
+  uncertaintyWeight: 0.6,
   scale: 1,
 });
 
@@ -33,18 +33,6 @@ const OutputSchema = QCDecisionSchema;
 
 type PolicyInput = z.infer<typeof InputSchema>;
 
-type ManualScoreConfig = {
-  rolesWeight: number;
-  industriesWeight: number;
-  keywordsWeight: number;
-};
-
-const MANUAL_WEIGHTS: ManualScoreConfig = {
-  rolesWeight: 0.3,
-  industriesWeight: 0.4,
-  keywordsWeight: 0.3,
-};
-
 const AgentDecisionSchema = z.object({
   acceptedIndices: z.array(z.number().int().min(0)).default([]),
   rejected: z
@@ -62,7 +50,6 @@ type PolicyAgentDecision = z.infer<typeof AgentDecisionSchema>;
 type CandidateForAgent = {
   slot: number;
   summary: z.infer<typeof SummarySchema>;
-  manualScore: number;
   llmScore: number;
   llmReason: string;
   recencyOk: boolean;
@@ -71,26 +58,6 @@ type CandidateForAgent = {
 type MastraLike = {
   getAgent?: (name: string) => { generate: (prompt: string) => Promise<{ text?: string | null }> } | undefined;
 };
-
-function sectionScore(values: string[] | undefined, weight: number, surface: string): number {
-  if (!values || values.length === 0) {
-    return 0;
-  }
-  const perItem = weight / values.length;
-  let score = 0;
-  for (const value of values) {
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-    if (surface.includes(trimmed.toLowerCase())) {
-      score += perItem;
-    }
-  }
-  return Math.min(weight, score);
-}
-
-function buildSurface(summary: z.infer<typeof SummarySchema>): string {
-  return `${summary.title}\n${summary.bullets.join(" \n")}`.toLowerCase();
-}
 
 function buildAxisDescription(axis: z.infer<typeof AxisSchema>): string {
   const keywords = axis.keywords && axis.keywords.length > 0 ? axis.keywords.join(", ") : "(なし)";
@@ -148,8 +115,7 @@ async function runPolicyAgent(
     title: candidate.summary.title,
     url: candidate.summary.url,
     bullets: candidate.summary.bullets,
-    fitScore: Number(candidate.summary.fitScore.toFixed(2)),
-    manualScore: Number(candidate.manualScore.toFixed(2)),
+    fitScore: Number(candidate.llmScore.toFixed(2)),
     llmScore: Number(candidate.llmScore.toFixed(2)),
     recencyOk: candidate.recencyOk,
     publishedAt: candidate.summary.publishedAt ?? null,
@@ -162,7 +128,7 @@ async function runPolicyAgent(
     `Policy: ${JSON.stringify(policy)}`,
     `Candidates: ${JSON.stringify(payload)}`,
     'Return JSON {"acceptedIndices": number[], "rejected": [{"index": number, "reason": string}]} using the index field to reference candidates.',
-    'Accept only if manualScore >= 0.5, fitScore >= policy.minFitScore, and recencyOk is true. Reject otherwise with a short Japanese reason.',
+    'Accept only if fitScore >= policy.minFitScore and recencyOk is true. Reject otherwise with a short Japanese reason.',
   ].join("\n\n");
 
   const generation = await agent.generate(prompt);
@@ -195,13 +161,6 @@ export const policyEvaluationTool = createTool({
         continue;
       }
 
-      const surface = buildSurface(trimmed);
-      let manualScore = 0;
-      manualScore += sectionScore(axis.roles, MANUAL_WEIGHTS.rolesWeight, surface);
-      manualScore += sectionScore(axis.industries, MANUAL_WEIGHTS.industriesWeight, surface);
-      manualScore += sectionScore(axis.keywords, MANUAL_WEIGHTS.keywordsWeight, surface);
-      manualScore = Math.min(1, manualScore);
-
       let llmScore = 0;
       let llmReason = "";
       try {
@@ -218,7 +177,6 @@ export const policyEvaluationTool = createTool({
       candidates.push({
         slot,
         summary: trimmed,
-        manualScore,
         llmScore,
         llmReason,
         recencyOk: isWithinRecency(trimmed.publishedAt, policy.recencyDays),
@@ -245,22 +203,21 @@ export const policyEvaluationTool = createTool({
 
       for (const candidate of candidates) {
         const meetsThresholds =
-          candidate.manualScore >= 0.5 &&
-          candidate.summary.fitScore >= policy.minFitScore &&
+          candidate.llmScore >= policy.minFitScore &&
           candidate.recencyOk;
 
         if (acceptedSet.has(candidate.slot) && meetsThresholds) {
-          accepted.push(candidate.summary);
+          accepted.push({
+            ...candidate.summary,
+            fitScore: candidate.llmScore,
+          });
           continue;
         }
 
         const reasonParts: string[] = [];
-        if (candidate.manualScore < 0.5) {
-          reasonParts.push(`Manual ${candidate.manualScore.toFixed(2)} < 0.50`);
-        }
-        if (candidate.summary.fitScore < policy.minFitScore) {
+        if (candidate.llmScore < policy.minFitScore) {
           reasonParts.push(
-            `Fit ${candidate.summary.fitScore.toFixed(2)} < Min ${policy.minFitScore.toFixed(2)}`,
+            `Fit ${candidate.llmScore.toFixed(2)} < Min ${policy.minFitScore.toFixed(2)}`,
           );
         }
         if (!candidate.recencyOk) {
@@ -270,27 +227,32 @@ export const policyEvaluationTool = createTool({
         const agentReason = rejectedReasons.get(candidate.slot);
         const baseReason = reasonParts.length > 0
           ? `ポリシー閾値未達: ${reasonParts.join(" / ")}`
-          : agentReason ?? `LLMScore=${candidate.llmScore.toFixed(2)} ${candidate.llmReason}`;
+          : agentReason ?? `LLMScore=${candidate.llmScore.toFixed(2)}`;
 
-        rejected.push({ summary: candidate.summary, reason: baseReason });
+        rejected.push({
+          summary: {
+            ...candidate.summary,
+            fitScore: candidate.llmScore,
+          },
+          reason: baseReason,
+        });
       }
     } else {
       for (const candidate of candidates) {
         const meetsThresholds =
-          candidate.manualScore >= 0.5 &&
-          candidate.summary.fitScore >= policy.minFitScore &&
+          candidate.llmScore >= policy.minFitScore &&
           candidate.recencyOk;
 
         if (meetsThresholds) {
-          accepted.push(candidate.summary);
+          accepted.push({
+            ...candidate.summary,
+            fitScore: candidate.llmScore,
+          });
         } else {
           const reasonParts: string[] = [];
-          if (candidate.manualScore < 0.5) {
-            reasonParts.push(`Manual ${candidate.manualScore.toFixed(2)} < 0.50`);
-          }
-          if (candidate.summary.fitScore < policy.minFitScore) {
+          if (candidate.llmScore < policy.minFitScore) {
             reasonParts.push(
-              `Fit ${candidate.summary.fitScore.toFixed(2)} < Min ${policy.minFitScore.toFixed(2)}`,
+              `Fit ${candidate.llmScore.toFixed(2)} < Min ${policy.minFitScore.toFixed(2)}`,
             );
           }
           if (!candidate.recencyOk) {
@@ -299,8 +261,14 @@ export const policyEvaluationTool = createTool({
           const fallbackReason =
             reasonParts.length > 0
               ? `ポリシー閾値未達: ${reasonParts.join(" / ")}`
-              : `LLMScore=${candidate.llmScore.toFixed(2)} ${candidate.llmReason}`;
-          rejected.push({ summary: candidate.summary, reason: fallbackReason });
+              : `LLMScore=${candidate.llmScore.toFixed(2)}`;
+          rejected.push({
+            summary: {
+              ...candidate.summary,
+              fitScore: candidate.llmScore,
+            },
+            reason: fallbackReason,
+          });
         }
       }
     }

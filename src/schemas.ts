@@ -36,7 +36,7 @@ export const SummarySchema = z
     bullets: z.array(z.string()).min(1),
     wordCount: z.number().int().min(1),
     publishedAt: z.string().optional(),
-    fitScore: z.number().min(0).max(1),
+    fitScore: z.number().min(0).max(1).optional(),
   })
   .strict();
 export type Summary = z.infer<typeof SummarySchema>;

@@ -20,6 +20,8 @@ const OutputSchema = z.object({
 type ResearchToolInput = z.infer<typeof InputSchema>;
 
 const MAX_ARTICLE_TEXT_LENGTH = 2000;
+const SERPAPI_TIMEOUT_MS = 20000;
+const SERPAPI_MAX_RETRY = 3;
 const AgentSummarySchema = SummarySchema.extend({
   publishedAt: z.string().nullable().optional(),
 });
@@ -52,6 +54,10 @@ function shuffleArray<T>(items: T[]): T[] {
   return arr;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function collectArticles(request: ResearchToolInput["request"]): Promise<ArticleCandidate[]> {
   const apiKey =
     process.env.SERPAPI_KEY ?? process.env.SERP_API_KEY ?? process.env.GOOGLE_SERP_API_KEY;
@@ -65,17 +71,28 @@ async function collectArticles(request: ResearchToolInput["request"]): Promise<A
     .join(" ");
 
   let response: any;
-  try {
-    response = await getJson({
-      engine: "google_news",
-      q: query,
-      hl: "ja",
-      gl: "jp",
-      api_key: apiKey,
-    });
-  } catch (error) {
-    console.warn("[ResearchTool] SerpAPI 検索に失敗しました:", error);
-    return [];
+  for (let attempt = 1; attempt <= SERPAPI_MAX_RETRY; attempt += 1) {
+    try {
+      response = await getJson({
+        engine: "google_news",
+        q: query,
+        hl: "ja",
+        gl: "jp",
+        api_key: apiKey,
+        timeout: SERPAPI_TIMEOUT_MS,
+      });
+      break;
+    } catch (error) {
+      const isLast = attempt === SERPAPI_MAX_RETRY;
+      console.warn(
+        `[ResearchTool] SerpAPI 検索に失敗しました (attempt ${attempt}/${SERPAPI_MAX_RETRY}):`,
+        error,
+      );
+      if (isLast) {
+        return [];
+      }
+      await delay(500 * attempt);
+    }
   }
 
   const results: any[] = Array.isArray(response?.news_results) ? response.news_results : [];
