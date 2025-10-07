@@ -19,16 +19,16 @@
 
 ## 3. アーキテクチャ (Architecture)
 ```
-AxisReader → Research (ComputerUse) → PolicyCheck → NotionWriter
-         └─────────────── Orchestrator (司令塔) ───────────────┘
+AxisReaderTool → OrchestratorAgent → ResearchTool → PolicyEvaluationTool → NotionWriterTool
 ```
 
-Mastraを用いた4つのエージェント構成で、司令塔が直列にワークフローを制御します。
+Mastra Workflow 上でツールとエージェントを直列接続し、以下の順で処理します。
 
-- **司令塔エージェント**: Axisと企業リストを入力に、検索クエリ生成・ポリシー閾値決定・各ステップの制御を行う。
-- **調査探索エージェント (ComputerUse)**: ブラウザ操作を想定した枠組みでWebを巡回し、Readability + JSDOMで本文抽出 → LLMによる要約。
-- **評価エージェント (PolicyCheck)**: 要約が軸に適合しているか、文字数・箇条書き数などを機械判定する。
-- **ナレッジ管理エージェント**: 合格した要約のみNotionに追記。出力先を差し替えられるよう抽象化。
+- **AxisReaderTool**: Notion の親ページから YAML 形式の就活軸を取得し、zod で検証。
+- **OrchestratorAgent**: Axis をもとに関連企業を LLM で推定し、候補リストを JSON で返す。
+- **ResearchTool**: 各企業についてニュース記事を収集し、LLM 要約を生成。
+- **PolicyEvaluationTool**: 軸との整合度を独自スコアと AnswerRelevancyMetric で評価し、受理/却下を判定。
+- **NotionWriterTool**: 受理された要約のみを Notion の企業ページに追記。
 
 ---
 
@@ -38,6 +38,7 @@ Mastraを用いた4つのエージェント構成で、司令塔が直列にワ�
 - **フレームワーク**: [Mastra](https://mastra.ai/)  
 - **主要ライブラリ**  
   - LLM: `openai`（`LLM_PROVIDER=gemini` 指定で `@google/generative-ai` も利用可）  
+  - 検索: `serpapi`  
   - 本文抽出: `@mozilla/readability`, `jsdom`  
   - スキーマ定義: `zod`, `yaml`  
   - データ書き込み: `@notionhq/client`  
@@ -51,7 +52,7 @@ Mastraを用いた4つのエージェント構成で、司令塔が直列にワ�
 ### 5.1. 前提条件
 - Node.js v22.x
 - npm
-- OpenAI APIキー（もしくはGemini APIキー）
+- Gemini APIキー・OpenAI APIキー
 - Notion IntegrationトークンとルートページID  
   （NotionページのURL末尾 `.../<page_id>?...` の32文字UUID）
 
@@ -67,52 +68,27 @@ npm install
 
 ```
 OPENAI_API_KEY=sk-...
-# LLM_PROVIDER=gemini            # Gemini を使う場合のみ
-# GEMINI_API_KEY=...             # Gemini 用
+# LLM_PROVIDER=gemini           
+# GEMINI_API_KEY=...             
+SERPAPI_KEY=...                 # Google News 経由の検索に利用
 NOTION_TOKEN=secret_...
 NOTION_ROOT_PAGE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-OUTPUT_DOCX=./out/JobSearch_KnowledgeBase.docx      # Word 出力を使う場合の例
 ```
 
 > 補足: `.env.example` に雛形があります。
 
 ### 5.4. 実行コマンド
-CLIは `src/tests/clis` にまとまっています。代表的なコマンドは以下。
 
-- **全体ワークフロー (Notion 書き込み含む)**  
-  ```bash
-  npm run orchestrate -- \
-    --root "$NOTION_ROOT_PAGE_ID" \
-    --companies "<company1>,<company2>" \
-    --limit 3 \
-    --recencyDays 300
-  ```
-- **Axis 抽出のみ**  
-  ```bash
-  npm run axis -- --root "$NOTION_ROOT_PAGE_ID"
-  ```
-- **調査 & 要約のみ**  
-  ```bash
-  npm run research -- \
-    --root "$NOTION_ROOT_PAGE_ID" \
-    --companies "<company>" \
-    --limit 3 \
-    --recencyDays 90
-  ```
-- **ポリシー判定（サンプル JSON 利用）**  
-  ```bash
-  npm run policy -- \
-    --company <company> \
-    --summariesFile src/tests/samples/summaries-test.json \
-    --policyFile src/tests/samples/policy-default.json
-  ```
-- **Notion 書き込み（QC 済みサンプルを使用）**  
-  ```bash
-  npm run write -- \
-    --inputFile src/tests/samples/qc-<company>.json
-  ```
+全工程をまとめて実行する CLI を提供しています。
 
-GitHub Actionsで週次実行する場合は `.github/workflows/orchestrate.yml` を参照し、`NOTION_TOKEN` と `NOTION_ROOT_PAGE_ID` をリポジトリシークレットへ設定してください。
+```bash
+npm run orchestrate -- \
+  --root "$NOTION_ROOT_PAGE_ID" \
+  --limit 3 \
+  --recencyDays 90
+```
+
+GitHub Actions で週次実行する場合は `.github/workflows/orchestrate.yml` を参照し、`NOTION_TOKEN` と `NOTION_ROOT_PAGE_ID` をリポジトリシークレットへ設定してください。
 
 ---
 

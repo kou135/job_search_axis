@@ -10,7 +10,15 @@ import type {
 import type { Summary } from "../../schemas.js";
 
 const AXIS_PAGE_TITLE = "00_JobSearchAxis";
-const DEFAULT_AXIS_YAML = `roles: ["ソフトウェアエンジニア"]\nindustries: ["Fintech","B2B SaaS"]\nkeywords: ["TypeScript","LLM","Mastra"]\n`;
+const DEFAULT_AXIS_TEMPLATE = `roles: [""]
+industries: ["",""]
+keywords: ["","",""]
+`;
+
+function getDefaultAxisYaml(): string {
+  console.log("Axis の初期テンプレートを使用します");
+  return DEFAULT_AXIS_TEMPLATE;
+}
 
 function assertPage(result: PageObjectResponse | PartialPageObjectResponse): PageObjectResponse {
   if (!("id" in result)) {
@@ -25,7 +33,7 @@ function textFromRichText(richText: { plain_text: string }[]): string {
 
 export class NotionService {
   private readonly client: Client;
-  constructor(private readonly rootPageId: string, private readonly token: string) {
+  constructor(private readonly rootPageId: string, token: string) {
     this.client = new Client({ auth: token });
   }
 
@@ -54,7 +62,7 @@ export class NotionService {
               rich_text: [
                 {
                   type: "text",
-                  text: { content: DEFAULT_AXIS_YAML },
+                  text: { content: getDefaultAxisYaml() },
                 },
               ],
             },
@@ -90,7 +98,7 @@ export class NotionService {
               rich_text: [
                 {
                   type: "text",
-                  text: { content: DEFAULT_AXIS_YAML },
+                  text: { content: getDefaultAxisYaml() },
                 },
               ],
             },
@@ -108,7 +116,21 @@ export class NotionService {
       throw new Error("Axis page に YAML コードブロックが見つかりませんでした");
     }
 
-    return textFromRichText(codeBlock.code.rich_text);
+    const rawYaml = textFromRichText(codeBlock.code.rich_text);
+    if (rawYaml.includes("\\n")) {
+      console.warn("[NotionService] Axis YAML にリテラルな\\nが含まれていたため改行に変換します。");
+    }
+    const normalizedYaml = rawYaml
+      .replace(/\r\n/g, "\n")
+      .replace(/\\n/g, "\n");
+    console.log(
+      "[NotionService] Axis YAML (先頭プレビュー):",
+      normalizedYaml
+        .split("\n")
+        .slice(0, 5)
+        .join("\\n"),
+    );
+    return normalizedYaml;
   }
 
   async ensureCompanyPage(company: string): Promise<string> {
@@ -140,13 +162,19 @@ export class NotionService {
     }
   }
 
-  async appendSummaries(companyPageId: string, headingDate: string, summaries: Summary[]) {
+  async appendSummaries(
+    companyPageId: string,
+    headingDate: string,
+    summaries: Summary[],
+    introParagraph?: string,
+  ) {
     if (summaries.length === 0) {
       return;
     }
 
     const children: BlockObjectRequest[] = [
       this.headingBlock(headingDate),
+      ...(introParagraph ? [this.paragraphBlock(introParagraph)] : []),
       ...summaries.flatMap((summary) => this.toggleBlock(summary)),
     ];
 
@@ -167,6 +195,20 @@ export class NotionService {
     };
   }
 
+  private paragraphBlock(text: string): BlockObjectRequest {
+    return {
+      type: "paragraph",
+      paragraph: {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: text },
+          },
+        ],
+      },
+    };
+  }
+
   private toggleBlock(summary: Summary): BlockObjectRequest {
     const linkText = {
       type: "text" as const,
@@ -176,6 +218,9 @@ export class NotionService {
       },
     };
 
+    const fitText =
+  summary.fitScore != null ? summary.fitScore.toFixed(2) : "N/A";
+
     const paragraph: BlockObjectRequestWithoutChildren = {
       type: "paragraph",
       paragraph: {
@@ -183,7 +228,7 @@ export class NotionService {
           {
             type: "text",
             text: {
-              content: `Published: ${summary.publishedAt ?? "N/A"} | fit: ${summary.fitScore.toFixed(2)}`,
+              content: `Published: ${summary.publishedAt ?? "N/A"} | fit: ${fitText}`,
             },
           },
         ],

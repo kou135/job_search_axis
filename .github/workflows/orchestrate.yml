@@ -1,15 +1,17 @@
-name: Weekly Orchestrator
+name: Weekly Job Search Workflow
 
 on:
   schedule:
-    # 毎週月曜日 03:00に実行。
+    # 毎週月曜日 03:00 (JST では 12:00 頃)
     - cron: '0 3 * * 1'
   workflow_dispatch:
     inputs:
-      companies:
-        description: "カンマ区切りの会社名"
+      limit:
+        description: "企業ごとの記事取得上限"
         required: false
-        default: ""
+      recencyDays:
+        description: "記事の新しさ（日数）"
+        required: false
 
 jobs:
   orchestrate:
@@ -18,7 +20,12 @@ jobs:
     env:
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       NOTION_ROOT_PAGE_ID: ${{ secrets.NOTION_ROOT_PAGE_ID }}
-      COMPANIES: ${{ github.event.inputs.companies }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+      DEFAULT_LIMIT: ${{ vars.DEFAULT_LIMIT || '3' }}
+      DEFAULT_RECENCY_DAYS: ${{ vars.DEFAULT_RECENCY_DAYS || '300' }}
+      WORKFLOW_LIMIT: ${{ github.event.inputs.limit }}
+      WORKFLOW_RECENCY_DAYS: ${{ github.event.inputs.recencyDays }}
 
     steps:
       - name: Checkout repository
@@ -30,15 +37,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Run orchestrator
-        run: |
-          if [ -n "$COMPANIES" ]; then
-            npm run orchestrate -- --root "$NOTION_ROOT_PAGE_ID" --companies "$COMPANIES" --limit 3 --recencyDays 300
-          else
-            npm run orchestrate -- --root "$NOTION_ROOT_PAGE_ID" --companies "SoftBank" --limit 3 --recencyDays 300
-          fi
-        env:
-          NOTION_TOKEN: ${{ env.NOTION_TOKEN }}
-          NOTION_ROOT_PAGE_ID: ${{ env.NOTION_ROOT_PAGE_ID }}
+      - name: Run workflow
+        run: npm run workflow:run
