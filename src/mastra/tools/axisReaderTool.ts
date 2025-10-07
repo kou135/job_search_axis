@@ -21,6 +21,7 @@ export const axisReaderTool = createTool({
     const notion = new NotionService(context.rootPageId, token);
     const axisPageId = await notion.ensureAxisPage();
     const axisYaml = await notion.getAxisYaml(axisPageId);
+    console.log("[AxisReader] 正規化後の Axis YAML:\n", axisYaml);
     return AxisSchema.parse(parse(axisYaml));
   },
 });

@@ -20,8 +20,9 @@ const OutputSchema = z.object({
 type ResearchToolInput = z.infer<typeof InputSchema>;
 
 const MAX_ARTICLE_TEXT_LENGTH = 2000;
-const SERPAPI_TIMEOUT_MS = 20000;
-const SERPAPI_MAX_RETRY = 3;
+const SERPAPI_TIMEOUT_MS = 30000;
+const SERPAPI_MAX_RETRY = 5;
+const SERPAPI_RETRY_BASE_DELAY_MS = 1000;
 const AgentSummarySchema = SummarySchema.extend({
   publishedAt: z.string().nullable().optional(),
 });
@@ -36,6 +37,12 @@ type ArticleCandidate = {
   text: string;
   publishedAt?: string;
 };
+
+function sanitizeCompanyName(rawName: string): string {
+  const withoutParens = rawName.replace(/（.*?）|\(.*?\)/g, "");
+  const normalizedSpaces = withoutParens.replace(/[\s\u3000]+/g, " ").trim();
+  return normalizedSpaces.length > 0 ? normalizedSpaces : rawName.trim();
+}
 
 function truncateArticleText(text: string): string {
   const trimmed = text.trim();
@@ -66,9 +73,8 @@ async function collectArticles(request: ResearchToolInput["request"]): Promise<A
     throw new Error("SERPAPI_KEY が設定されていません");
   }
 
-  const query = [request.company, ...(request.axis.keywords ?? []).slice(0, 2), "ニュース"]
-    .filter(Boolean)
-    .join(" ");
+  const sanitizedCompany = sanitizeCompanyName(request.company);
+  const query = `${sanitizedCompany} ニュース`;
 
   let response: any;
   for (let attempt = 1; attempt <= SERPAPI_MAX_RETRY; attempt += 1) {
@@ -85,18 +91,25 @@ async function collectArticles(request: ResearchToolInput["request"]): Promise<A
     } catch (error) {
       const isLast = attempt === SERPAPI_MAX_RETRY;
       console.warn(
-        `[ResearchTool] SerpAPI 検索に失敗しました (attempt ${attempt}/${SERPAPI_MAX_RETRY}):`,
+        `[ResearchTool] SerpAPI 検索に失敗しました (company=${request.company}, query="${query}", attempt ${attempt}/${SERPAPI_MAX_RETRY}):`,
         error,
       );
       if (isLast) {
+        console.warn(
+          `[ResearchTool] SerpAPI の再試行が上限に達したため記事収集を中断します (company=${request.company}, query="${query}")`,
+        );
         return [];
       }
-      await delay(500 * attempt);
+      const backoff = SERPAPI_RETRY_BASE_DELAY_MS * 1.5 ** (attempt - 1);
+      await delay(backoff);
     }
   }
 
   const results: any[] = Array.isArray(response?.news_results) ? response.news_results : [];
   if (results.length === 0) {
+    console.warn(
+      `[ResearchTool] SerpAPI からニュース結果が取得できませんでした (company=${request.company}, query="${query}")`,
+    );
     return [];
   }
 
@@ -114,6 +127,9 @@ async function collectArticles(request: ResearchToolInput["request"]): Promise<A
 
       const text = extracted.text.trim() ? extracted.text : result.snippet ?? "";
       if (!text.trim()) {
+        console.warn(
+          `[ResearchTool] 抽出本文が空のため記事をスキップします (${resolvedUrl})`,
+        );
         continue;
       }
 
@@ -124,8 +140,21 @@ async function collectArticles(request: ResearchToolInput["request"]): Promise<A
         publishedAt: result.published_at ?? result.date ?? undefined,
       });
     } catch (error) {
-      console.warn(`[ResearchTool] 記事取得に失敗しました (${result?.link}):`, error);
+      console.warn(
+        `[ResearchTool] 記事取得に失敗しました (${result?.link}) (company=${request.company}):`,
+        error,
+      );
     }
+  }
+
+  if (articles.length === 0) {
+    console.warn(
+      `[ResearchTool] 有効な記事を収集できませんでした (company=${request.company}, query="${query}")`,
+    );
+  } else if (articles.length < request.limit) {
+    console.warn(
+      `[ResearchTool] 記事数が希望件数に満たないため不足分があります (company=${request.company}, collected=${articles.length}, limit=${request.limit})`,
+    );
   }
 
   return articles;
@@ -172,13 +201,14 @@ async function runResearchAgent(
 
   const parsed = AGENT_SUMMARY_SCHEMA.parse(JSON.parse(cleaned));
   const normalized = parsed.summaries.slice(0, request.limit).map((summary) => {
-    const normalizedPublishedAt = summary.publishedAt ?? undefined;
-    return {
-      ...summary,
+    const { fitScore: _fitScore, ...rest } = summary;
+    const normalizedPublishedAt = rest.publishedAt ?? undefined;
+    return SummarySchema.parse({
+      ...rest,
       publishedAt: normalizedPublishedAt,
-    } satisfies z.infer<typeof SummarySchema>;
+    });
   });
-  return normalized.map((summary) => SummarySchema.parse(summary));
+  return normalized;
 }
 
 export const researchTool = createTool({
@@ -206,14 +236,15 @@ export const researchTool = createTool({
     if (summaries.length === 0) {
       for (const article of articles.slice(0, request.limit)) {
         try {
-          const summary = await summarizeArticle({
+          const rawSummary = await summarizeArticle({
             url: article.url,
             title: article.title,
             text: article.text,
             axis: request.axis,
             language: "ja",
           });
-          summaries.push(SummarySchema.parse(summary));
+          const { fitScore: _fitScore, ...rest } = rawSummary;
+          summaries.push(SummarySchema.parse(rest));
         } catch (error) {
           console.warn(`[ResearchTool] フォールバック要約に失敗しました (${article.url}):`, error);
         }

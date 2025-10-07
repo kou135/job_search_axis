@@ -49,7 +49,10 @@ export const notionWriterTool = createTool({
     const summaryPayload = summaries.map((summary) => ({
       title: summary.title,
       url: summary.url,
-      fitScore: Number(summary.fitScore.toFixed(2)),
+      fitScore:
+        summary.fitScore != null
+          ? Number(summary.fitScore.toFixed(2))
+          : undefined,
       publishedAt: summary.publishedAt ?? null,
       bullets: summary.bullets,
     }));
@@ -59,10 +62,14 @@ export const notionWriterTool = createTool({
       if (agent) {
         const prompt = [
           "You craft intro text for Notion research notes in Japanese.",
+          "Respond ONLY with valid JSON. Do not include markdown fences, explanations, or plain text outside the JSON object.",
+          "The JSON schema is {\"intro\": string, \"headingDate\"?: string}.",
+          "intro must be 1-2 sentences in natural Japanese referencing the job-search axis and the accepted news.",
+          "If you do not wish to override the heading date, omit the headingDate key entirely.",
+          "If you cannot produce a customised intro, respond with {\"intro\": \"本日のニュース要約です。\"}.",
           `Company: ${company}`,
-          `Axis: ${JSON.stringify(axis)}`,
-          `Summaries: ${JSON.stringify(summaryPayload)}`,
-          'Respond with JSON {"intro": string, "headingDate"?: string}. Intro must be 1-2 sentences in natural Japanese referencing the axis focus. If you do not wish to override the heading date, omit headingDate.',
+          `Axis JSON: ${JSON.stringify(axis)}`,
+          `Accepted summaries JSON: ${JSON.stringify(summaryPayload)}`,
         ].join("\n\n");
 
         const generation = await agent.generate(prompt);

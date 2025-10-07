@@ -20,7 +20,7 @@ interface SummarizeParams {
 
 interface LlmSummaryResponse {
   bullets: string[];
-  fitScore: number;
+  fitScore?: number;
 }
 
 function computeWordCount(bullets: string[]): number {
@@ -43,7 +43,6 @@ function fallbackSummary(params: SummarizeParams): Summary {
     bullets,
     wordCount: computeWordCount(bullets),
     publishedAt: params.publishedAt,
-    fitScore: 0.5,
   });
 }
 
@@ -109,7 +108,7 @@ async function summarizeWithGemini(params: SummarizeParams): Promise<Summary> {
     throw new Error("Gemini要約の形式が不正です");
   }
 
-  const fitScore = typeof parsed.fitScore === "number" ? parsed.fitScore : 0.5;
+  const _fitScore = typeof parsed.fitScore === "number" ? parsed.fitScore : undefined;
 
   return SummarySchema.parse({
     url: params.url,
@@ -117,7 +116,6 @@ async function summarizeWithGemini(params: SummarizeParams): Promise<Summary> {
     bullets,
     wordCount: computeWordCount(bullets),
     publishedAt: params.publishedAt,
-    fitScore,
   });
 }
 
