@@ -1,10 +1,11 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
+import { getJson } from "serpapi";
+
 import { ResearchRequestSchema, SummarySchema } from "../../schemas.js";
 import { fetchHtml } from "./fetchHtml.js";
 import { extractMainText } from "./extractMainText.js";
-import { extractLinksFromSearch } from "./extractLinksFromSearch.js";
 import { summarizeArticle } from "./llm.js";
 
 const InputSchema = z.object({
@@ -18,16 +19,13 @@ const OutputSchema = z.object({
 
 type ResearchToolInput = z.infer<typeof InputSchema>;
 
-type NewsSource = {
-  name: string;
-  buildUrl: (request: ResearchToolInput["request"]) => string;
-  linkSelectors: string[];
-};
-
-const MAX_ARTICLES_PER_SOURCE = 2;
 const MAX_ARTICLE_TEXT_LENGTH = 2000;
+const AgentSummarySchema = SummarySchema.extend({
+  publishedAt: z.string().nullable().optional(),
+});
+
 const AGENT_SUMMARY_SCHEMA = z.object({
-  summaries: z.array(SummarySchema),
+  summaries: z.array(AgentSummarySchema),
 });
 
 type ArticleCandidate = {
@@ -36,16 +34,6 @@ type ArticleCandidate = {
   text: string;
   publishedAt?: string;
 };
-const NEWS_SOURCES: NewsSource[] = [
-  {
-    name: "techcrunch",
-    buildUrl: (request) =>
-      `https://techcrunch.com/search/${encodeURIComponent(
-        `${request.company} ${request.axis.industries[0] ?? ""}`
-      )}`,
-    linkSelectors: ["a.loop-card__title-link", ".post-block__title a"],
-  },
-];
 
 function truncateArticleText(text: string): string {
   const trimmed = text.trim();
@@ -55,68 +43,71 @@ function truncateArticleText(text: string): string {
   return `${trimmed.slice(0, MAX_ARTICLE_TEXT_LENGTH)}...`;
 }
 
+function shuffleArray<T>(items: T[]): T[] {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 async function collectArticles(request: ResearchToolInput["request"]): Promise<ArticleCandidate[]> {
+  const apiKey =
+    process.env.SERPAPI_KEY ?? process.env.SERP_API_KEY ?? process.env.GOOGLE_SERP_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("SERPAPI_KEY が設定されていません");
+  }
+
+  const query = [request.company, ...(request.axis.keywords ?? []).slice(0, 2), "ニュース"]
+    .filter(Boolean)
+    .join(" ");
+
+  let response: any;
+  try {
+    response = await getJson({
+      engine: "google_news",
+      q: query,
+      hl: "ja",
+      gl: "jp",
+      api_key: apiKey,
+    });
+  } catch (error) {
+    console.warn("[ResearchTool] SerpAPI 検索に失敗しました:", error);
+    return [];
+  }
+
+  const results: any[] = Array.isArray(response?.news_results) ? response.news_results : [];
+  if (results.length === 0) {
+    return [];
+  }
+
+  const selected = shuffleArray(results).slice(0, request.limit);
   const articles: ArticleCandidate[] = [];
 
-  for (const source of NEWS_SOURCES) {
-    if (articles.length >= request.limit) {
-      break;
+  for (const result of selected) {
+    if (!result?.link) {
+      continue;
     }
 
-    const searchUrl = source.buildUrl(request);
-
     try {
-      const { html: searchHtml, url: resolvedSearchUrl } = await fetchHtml(searchUrl);
+      const { html: articleHtml, url: resolvedUrl } = await fetchHtml(result.link);
+      const extracted = extractMainText(articleHtml, resolvedUrl);
 
-      const remainingCapacity = request.limit - articles.length;
-      const perSourceLimit = Math.min(MAX_ARTICLES_PER_SOURCE, remainingCapacity);
-      const articleUrls: string[] = [];
-
-      for (const selector of source.linkSelectors) {
-        const needed = perSourceLimit - articleUrls.length;
-        if (needed <= 0) {
-          break;
-        }
-
-        const extractedUrls = extractLinksFromSearch(searchHtml, resolvedSearchUrl, selector, needed);
-        for (const url of extractedUrls) {
-          if (!articleUrls.includes(url)) {
-            articleUrls.push(url);
-          }
-          if (articleUrls.length >= perSourceLimit) {
-            break;
-          }
-        }
-      }
-
-      if (articleUrls.length === 0) {
+      const text = extracted.text.trim() ? extracted.text : result.snippet ?? "";
+      if (!text.trim()) {
         continue;
       }
 
-      for (const articleUrl of articleUrls) {
-        if (articles.length >= request.limit) {
-          break;
-        }
-
-        try {
-          const { html: articleHtml, url: resolvedArticleUrl } = await fetchHtml(articleUrl);
-          const extracted = extractMainText(articleHtml, resolvedArticleUrl);
-
-          if (!extracted.text.trim()) {
-            continue;
-          }
-
-          articles.push({
-            url: resolvedArticleUrl,
-            title: extracted.title || `${request.company} ニュース`,
-            text: truncateArticleText(extracted.text),
-          });
-        } catch (error) {
-          console.warn(`[ResearchTool] 記事処理に失敗しました (${articleUrl}):`, error);
-        }
-      }
+      articles.push({
+        url: resolvedUrl,
+        title: extracted.title || result.title || `${request.company} ニュース`,
+        text: truncateArticleText(text),
+        publishedAt: result.published_at ?? result.date ?? undefined,
+      });
     } catch (error) {
-      console.warn(`[ResearchTool] 検索ページ取得に失敗しました (${searchUrl}):`, error);
+      console.warn(`[ResearchTool] 記事取得に失敗しました (${result?.link}):`, error);
     }
   }
 
@@ -163,7 +154,14 @@ async function runResearchAgent(
   const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
 
   const parsed = AGENT_SUMMARY_SCHEMA.parse(JSON.parse(cleaned));
-  return parsed.summaries.slice(0, request.limit).map((summary) => SummarySchema.parse(summary));
+  const normalized = parsed.summaries.slice(0, request.limit).map((summary) => {
+    const normalizedPublishedAt = summary.publishedAt ?? undefined;
+    return {
+      ...summary,
+      publishedAt: normalizedPublishedAt,
+    } satisfies z.infer<typeof SummarySchema>;
+  });
+  return normalized.map((summary) => SummarySchema.parse(summary));
 }
 
 export const researchTool = createTool({

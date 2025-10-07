@@ -38,6 +38,7 @@ Mastra Workflow 上でツールとエージェントを直列接続し、以下�
 - **フレームワーク**: [Mastra](https://mastra.ai/)  
 - **主要ライブラリ**  
   - LLM: `openai`（`LLM_PROVIDER=gemini` 指定で `@google/generative-ai` も利用可）  
+  - 検索: `serpapi`  
   - 本文抽出: `@mozilla/readability`, `jsdom`  
   - スキーマ定義: `zod`, `yaml`  
   - データ書き込み: `@notionhq/client`  
@@ -69,6 +70,7 @@ npm install
 OPENAI_API_KEY=sk-...
 # LLM_PROVIDER=gemini           
 # GEMINI_API_KEY=...             
+SERPAPI_KEY=...                 # Google News 経由の検索に利用
 NOTION_TOKEN=secret_...
 NOTION_ROOT_PAGE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```

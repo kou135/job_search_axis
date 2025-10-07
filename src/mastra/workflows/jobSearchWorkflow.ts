@@ -215,7 +215,7 @@ const writerStep = createStep({
 });
 
 export const jobSearchWorkflow = createWorkflow({
-  id: "job-search-workflow",
+  id: "jobSearchWorkflow",
   inputSchema: WorkflowInputSchema,
   outputSchema: z.object({
     qcResults: z.array(QCDecisionSchema),
@@ -227,5 +227,12 @@ export const jobSearchWorkflow = createWorkflow({
       })
     ),
   }),
-  steps: [axisStep, orchestratorStep, researchStep, policyStep, writerStep],
 });
+
+jobSearchWorkflow
+  .then(axisStep)
+  .then(orchestratorStep)
+  .then(researchStep)
+  .then(policyStep)
+  .then(writerStep)
+  .commit();
