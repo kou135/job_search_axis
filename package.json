@@ -7,7 +7,8 @@
     "dev": "mastra dev",
     "build": "mastra build",
     "start": "mastra start",
-    "orchestrate": "node --loader ts-node/esm src/tests/clis/cli-orchestrate.ts"
+    "orchestrate": "node --loader ts-node/esm src/tests/clis/cli-orchestrate.ts",
+    "workflow:run": "node --loader ts-node/esm src/tests/clis/run-workflow.ts"
   },
   "keywords": [],
   "author": "",
